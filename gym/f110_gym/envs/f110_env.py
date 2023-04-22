@@ -408,7 +408,7 @@ class F110Env(gym.Env):
         elif self.current_time >= max_episode_time and self.lap_counts == 0:
             done = True
             # print('time exceed')
-        elif self.lap_counts == 3:
+        elif self.lap_counts[0] == 3:
             done = True
             # print('3 laps done')
         else:
@@ -487,7 +487,9 @@ class F110Env(gym.Env):
                           self.map_csv_data[1, 3] +
                           np.random.uniform(-np.pi/12, np.pi/12))
 
-            poses = np.array([[init_x, init_y, init_angle]])
+            poses = np.array([[init_x, init_y, init_angle], [-2.0, 2.0, 0.0]])
+            
+            # poses.append([-2.0, 2.0, 0.0])
 
         # reset counters and data members
         self.current_time = 0.0

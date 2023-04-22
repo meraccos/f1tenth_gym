@@ -15,7 +15,7 @@ obs = env.reset()
 done = False
 
 # Initialize action array
-action = np.array([[0.0, 0.0]])
+action = np.array([[0.0, 0.0], [0.0, 0.0]])
 
 # Initialize control variables
 steering_angle = 0.0

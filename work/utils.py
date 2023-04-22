@@ -18,7 +18,7 @@ DTYPE = np.float32
 def create_env(maps=[0], seed=5):
     env = gym.make(
         "f110_gym:f110-v0",
-        num_agents=1,
+        num_agents=2,
         maps=maps,
         seed=seed,
         num_beams=NUM_BEAMS,
