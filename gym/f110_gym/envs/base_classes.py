@@ -71,7 +71,7 @@ class RaceCar(object):
         seed,
         is_ego=False,
         time_step=0.01,
-        num_beams=2155,
+        num_beams=2055,
         fov=4.7,
         integrator=Integrator.Euler,
     ):  # 1080
@@ -544,7 +544,7 @@ class Simulator(object):
         # fill in observations
         # state is [x, y, steer_angle, vel, yaw_angle, yaw_rate, slip_angle]
         observations = {
-            "ego_idx": self.ego_idx,
+            # "ego_idx": self.ego_idx,
             "scans": [],
             "poses_x": [],
             "poses_y": [],

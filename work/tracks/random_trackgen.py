@@ -291,7 +291,7 @@ def convert_track(track, track_int, track_ext, iter, width):
     cv_img_bw = cv2.cvtColor(cv_img, cv2.COLOR_BGR2GRAY)
     # saving to img
     cv2.imwrite("maps/map" + str(iter) + ".png", cv_img_bw)
-    cv2.imwrite("maps/map" + str(iter) + ".pgm", cv_img_bw)
+    # cv2.imwrite("maps/map" + str(iter) + ".pgm", cv_img_bw)
 
     # create yaml file
     yaml = open("maps/map" + str(iter) + ".yaml", "w")

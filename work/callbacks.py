@@ -9,7 +9,7 @@ from copy import copy
 
 import os
 import warnings
-import gym
+import gymnasium as gym
 import numpy as np
 
 
@@ -19,9 +19,11 @@ class TensorboardCallback(BaseCallback):
 
         self.save_interval = save_interval
         self.save_path = save_path
+        
+        self.log_width = 40
 
-        self.lap_count_log = np.zeros(100, int)
-        self.collision_log = np.ones(100, int)
+        self.lap_count_log = np.zeros(self.log_width, int)
+        self.collision_log = np.ones(self.log_width, int)
 
         self.episode_index = 0
 
@@ -34,9 +36,9 @@ class TensorboardCallback(BaseCallback):
 
         if 'episode' in infos:
             self.lap_count_log[self.episode_index] = infos["lap_count"]
-            self.collision_log[self.episode_index] = 1 - infos['collision']
+            self.collision_log[self.episode_index] = infos['collision']
 
-            self.episode_index = (self.episode_index + 1) % 100
+            self.episode_index = (self.episode_index + 1) % self.log_width
 
             self.success_rate = np.mean(self.lap_count_log >= 1)
             self.collision_rate = np.mean(self.collision_log)
@@ -45,10 +47,8 @@ class TensorboardCallback(BaseCallback):
         if self.num_timesteps % self.save_interval == 0:
             self.model.save(f"{self.save_path}_{int(self.num_timesteps / 1000)}k")
 
-        self.logger.record("rollout/success_rate", 
-                           float(self.success_rate))
-        self.logger.record("rollout/collision_rate", 
-                           float(self.collision_rate))
+        self.logger.record("rollout/success_rate", float(self.success_rate))
+        self.logger.record("rollout/collision_rate", float(self.collision_rate))
 
         return True
 
@@ -92,7 +92,7 @@ class CustomEvalCallback(EventCallback):
         best_model_save_path: Optional[str] = None,
         deterministic: bool = True,
         render: bool = False,
-        verbose: int = 1,
+        verbose: int = 0,
         warn: bool = True,
     ):
         super().__init__(callback_after_eval, verbose=verbose)

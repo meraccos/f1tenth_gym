@@ -339,7 +339,8 @@ class EnvRenderer(pyglet.window.Window):
             None
         """
 
-        self.ego_idx = obs['ego_idx']
+        # self.ego_idx = obs['ego_idx']
+        self.ego_idx = 1
         poses_x = obs['poses_x']
         poses_y = obs['poses_y']
         poses_theta = obs['poses_theta']
@@ -366,4 +367,4 @@ class EnvRenderer(pyglet.window.Window):
             self.cars[j].vertices = vertices
         self.poses = poses
 
-        self.score_label.text = 'Lap Time: {laptime:.2f}, Ego Lap Count: {count:.0f}'.format(laptime=int(obs['lap_times'][0]), count=int(obs['lap_counts'][obs['ego_idx']]))
+        self.score_label.text = 'Lap Time: {laptime:.2f}, Ego Lap Count: {count:.0f}'.format(laptime=int(obs['lap_times'][0]), count=int(obs['lap_counts'][self.ego_idx-1]))

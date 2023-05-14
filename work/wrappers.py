@@ -1,12 +1,12 @@
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 
 from copy import copy
 import numpy as np
 
 from sklearn.neighbors import KDTree
 
-NUM_BEAMS = 2155
+NUM_BEAMS = 2055
 DTYPE = np.float32
 
 
@@ -49,7 +49,7 @@ class LidarRandomizer(gym.ObservationWrapper):
     
 
 class ActionRandomizer(gym.ActionWrapper):
-    def __init__(self, env, epsilon=0.1):
+    def __init__(self, env, epsilon=0.01):
         super().__init__(env)
         self.epsilon = epsilon
     def action(self, action):
@@ -76,6 +76,9 @@ class RewardWrapper(gym.Wrapper):
         # Encourage the agent to move in the vs direction
         reward += 1.0 * vs
         reward -= 0.01 * abs(vd)
+        
+        reward -= 0.1 * abs(d)
+        # reward -= 0.1 * abs(w)
 
         # Penalize the agent for collisions
         if self.env.collisions[0]:
@@ -96,12 +99,8 @@ class RewardWrapper(gym.Wrapper):
         return reward
 
     def step(self, action):
-        obs, _, done, info = self.env.step(action)
-        info['poses_s'] = obs['poses_s']
-        info['collision'] = 1 - self.env.collisions[0]
-        info['is_success'] = bool(info['lap_count'][0] >= 1)
-        new_reward = self.reward(obs)
-        return obs, new_reward.item(), done, info
+        obs, _, terminated, truncated, info = self.env.step(action)
+        return obs, self.reward(obs).item(), terminated, truncated, info
 
 
 class FrenetObsWrapper(gym.ObservationWrapper):
@@ -113,7 +112,6 @@ class FrenetObsWrapper(gym.ObservationWrapper):
 
         self.observation_space = spaces.Dict(
             {
-                "ego_idx": spaces.Box(0, self.num_agents - 1, (1,), np.int32),
                 "scans": spaces.Box(0, 1, (NUM_BEAMS,), DTYPE),
                 "poses_x": spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
                 "poses_y": spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),

@@ -2,20 +2,21 @@ from stable_baselines3.common.monitor import Monitor
 from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env import SubprocVecEnv
 
-from stable_baselines3.common.vec_env import VecNormalize
-
 from wrappers import RewardWrapper, FrenetObsWrapper
 from wrappers import ActionRandomizer, LidarRandomizer
 
-from gym.wrappers import FilterObservation, TimeLimit
-from gym.wrappers import RescaleAction
-from gym.wrappers import FlattenObservation, FrameStack
+from gymnasium.experimental.wrappers import RescaleActionV0
+from gymnasium.experimental.wrappers import DelayObservationV0
+from gymnasium.wrappers import NormalizeReward
+
+from gymnasium.wrappers import FilterObservation, TimeLimit
+# from gymnasium.wrappers import NormalizeReward
+from gymnasium.wrappers import FlattenObservation, FrameStack
 
 import numpy as np
-import gym
+import gymnasium as gym
 
-NUM_BEAMS = 2155
-DTYPE = np.float64
+NUM_BEAMS = 2055
 
 def create_env(maps, seed=5):
     env = gym.make(
@@ -29,22 +30,21 @@ def create_env(maps, seed=5):
     env = FrenetObsWrapper(env)
     env = RewardWrapper(env)
     
-    env = FilterObservation(env, filter_keys=["scans", "linear_vel"])
+    env = FilterObservation(env, filter_keys=["scans", "linear_vel", "ang_vels_z"])
     env = TimeLimit(env, max_episode_steps=10000)
-    env = RescaleAction(env, min_action = np.array([-1.0, 0.0]), 
+    env = RescaleActionV0(env, min_action = np.array([-1.0, 0.0]), 
                              max_action = np.array([1.0, 1.0]))
     
-    env = LidarRandomizer(env)
-    env = ActionRandomizer(env)
+    # # env = LidarRandomizer(env)
+    # # env = ActionRandomizer(env)
     
     env = FlattenObservation(env)
-    # env = FrameStack(env, 3)
+    # env = FrameStack(env, 4)
             
-    env = Monitor(env, info_keywords=("is_success",), filename='./metrics/data')
-    env = DummyVecEnv([lambda: env])
-    env = VecNormalize(env, norm_reward=True, norm_obs=False)
-
+    env = Monitor(env, info_keywords=("is_success", ))
+    # env = DummyVecEnv([lambda: env])
     
+    env = NormalizeReward(env)    
 
     return env
 

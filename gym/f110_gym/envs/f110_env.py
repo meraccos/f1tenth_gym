@@ -30,8 +30,8 @@ import yaml
 from f110_gym.envs.base_classes import Integrator, Simulator
 from stable_baselines3.common.logger import read_csv
 
-import gym
-from gym import spaces
+import gymnasium as gym
+from gymnasium import spaces
 
 # Constants
 VIDEO_W = 600
@@ -82,11 +82,9 @@ class F110Env(gym.Env):
 
             ego_idx (int, default=0): ego's index in list of agents
     """
-    metadata = {'render.modes': ['human', 'human_fast']}
-
+    
     # rendering
     renderer = None
-    current_obs = None
     render_callbacks = []
 
     def __init__(self, **kwargs):
@@ -111,31 +109,13 @@ class F110Env(gym.Env):
         # number of lidar beams
         self.num_beams = kwargs.get('num_beams', 600)
 
-        # radius to consider done
-        self.start_thresh = 0.5  # 10cm
-
         # env states
         self.poses = np.zeros((self.num_agents, 3))
         self.collisions = np.zeros(self.num_agents)
 
-        # loop completion
-        self.near_start = True
-        self.num_toggles = 0
-
         # race info
         self.lap_times = np.zeros(self.num_agents)
         self.lap_counts = np.zeros(self.num_agents)
-        self.current_time = 0.0
-
-        # finish line info
-        self.num_toggles = 0
-        self.near_start = True
-        self.near_starts = np.array([True]*self.num_agents)
-        self.toggle_list = np.zeros((self.num_agents,))
-        self.start_xs = np.zeros((self.num_agents, ))
-        self.start_ys = np.zeros((self.num_agents, ))
-        self.start_thetas = np.zeros((self.num_agents, ))
-        self.start_rot = np.eye(2)
 
         # initiate stuff
         self.sim = Simulator(self.params, self.num_agents, 
@@ -143,12 +123,11 @@ class F110Env(gym.Env):
                              time_step=self.timestep,
                              integrator=self.integrator)
         self._set_random_map()
-        self.collided = False
         
         # stateful observations for rendering
         self.render_obs = None
         
-        self.prev_was_one_lap = False
+        self.metadata = {'render_modes': ['human', 'human_fast'], 'render_fps': 60}
         
         self.action_space = spaces.Box(np.array([self.params['s_min'], 
                                                  0.01]), 
@@ -157,7 +136,7 @@ class F110Env(gym.Env):
                                        dtype=np.float64)
         
         self.observation_space = spaces.Dict({
-            'ego_idx': spaces.Box(0, self.num_agents - 1, (1,), np.int32),
+            # 'ego_idx': spaces.Box(0, self.num_agents, (), np.int32),
             'scans': spaces.Box(0, 100, (self.num_beams, ), DTYPE),
             'poses_x': spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
             'poses_y': spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
@@ -397,16 +376,13 @@ class F110Env(gym.Env):
     def _format_obs(self, obs):
         formatted_obs = {
             key: np.array(value, dtype=DTYPE)
-            for key, value in obs.items()
-        }
-        formatted_obs['ego_idx'] = np.array([obs['ego_idx']], np.int32)
+            for key, value in obs.items()}
         formatted_obs['lap_counts'] = np.array(obs['lap_counts'], np.int32)
         return formatted_obs
 
     def _update_render_obs(self, obs):
         self.render_obs = {
-            key: obs[key] for key in ['ego_idx', 'poses_x',
-                                      'poses_y', 'poses_theta',
+            key: obs[key] for key in ['poses_x', 'poses_y', 'poses_theta',
                                       'lap_times', 'lap_counts']
         }
 
@@ -426,20 +402,21 @@ class F110Env(gym.Env):
 
         # check done
         done, toggle_list = self._check_done()
-
+        
         info = {'checkpoint_done': done,
                 'max_s': self.map_max_s,
                 'lap_count': obs['lap_counts'],
-                "is_success": obs['lap_counts'][0] >=1}
+                'collision': self.collisions[0],
+                'is_success': obs['lap_counts'][0] >=1}
 
         # Reverse the lidar data
         obs['scans'] = obs['scans'][0][::-1]
         obs = self._format_obs(obs)
 
         self.curr_obs = obs
-        return obs, 0, done, info
+        return obs, 0, done, False, info
 
-    def reset(self, poses=None):
+    def reset(self, poses=None, seed=None, options=None):
         """
         Args:
             poses (np.ndarray (num_agents, 3)): poses to reset agents to
@@ -450,6 +427,7 @@ class F110Env(gym.Env):
             done (bool): if the simulation is done
             info (dict): auxillary information dictionary
         """
+        super().reset(seed=seed)
         self._set_random_map()
 
         if poses is None:
@@ -484,13 +462,13 @@ class F110Env(gym.Env):
 
         # get no input observations
         action = np.zeros((self.num_agents, 2))
-        obs, reward, done, info = self.step(action)
+        obs, reward, terminated, truncated, info = self.step(action)
 
         self._update_render_obs(obs)
         obs = self._convert_obs_to_arrays(obs)
         obs = self._format_obs(obs)
-
-        return obs
+        
+        return obs, info
 
     def update_params(self, params, index=-1):
         """
