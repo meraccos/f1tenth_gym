@@ -132,7 +132,7 @@ class F110Env(gym.Env):
         self.action_space = spaces.Box(np.array([self.params['s_min'], 
                                                  0.01]), 
                                        np.array([self.params['s_max'],
-                                                 self.params['sv_max']]), 
+                                                 1.0 ]), 
                                        dtype=np.float64)
         
         self.observation_space = spaces.Dict({
@@ -437,6 +437,7 @@ class F110Env(gym.Env):
             init_angle = (np.pi/2 +
                           self.map_data["psi_rad"].iloc[1] +
                           np.random.uniform(-np.pi/12, np.pi/12))
+                        #   np.random.uniform(-np.pi/3, np.pi/3))
 
             poses = np.array([[init_x, init_y, init_angle]])
 

@@ -5,16 +5,14 @@ from utils import create_env
 import random
 
 maps = list(range(1, 250))
-random.seed(7)
+random.seed(2)
 
 env = create_env(maps=maps, seed=5)
-env.training = False
 
-model = "models/no_obstacles_3000000"
+model_path = "/Users/meraj/workspace/f1tenth_gym/work/models/lr0005/lr0005_50k.zip"
+model = PPO.load(path=model_path, env=env)
 
-model = PPO.load(path=model, env=env)
-
-obs = env.reset()
+obs, _ = env.reset()
 done = False
 
 # Set up the LiDAR data plot
@@ -22,20 +20,17 @@ plt.ion()
 fig, ax = plt.subplots(subplot_kw={"projection": "polar"})
 
 while not done:
-    action, _state = model.predict(obs, deterministic=True)
-    obs, reward, done, info = env.step(action)
-
+    action, _state = model.predict(obs)
+    print(f'{action=}')
+    obs, reward, terminated, truncated, info = env.step(action)
+    
     # Get the LiDAR data from obs
-    lidar_data = obs["scans"]
-    print(action[0])
-    # lidar_data = np.log10(obs["scans"]+1)
-    # lidar_data = np.sqrt(obs["scans"])
-    # lidar_data = obs["scans"] = np.sqrt(obs["scans"]+1.0) / 1.5 
+    lidar_data = obs[0:2055]
 
     # Convert LiDAR data to polar coordinates
     num_angles = lidar_data.size
     full_lidar_angle = np.pi * 270 / 180  # degrees
-    angles = np.linspace(full_lidar_angle / 2, -full_lidar_angle / 2, num_angles)
+    angles = np.linspace(-full_lidar_angle / 2, full_lidar_angle / 2, num_angles)
 
     # Update the LiDAR data plot
     ax.clear()
@@ -47,7 +42,7 @@ while not done:
     plt.draw()
     plt.pause(0.00001)
 
-    env.render(mode="human_fast")
+    env.render()
 
 # Close the LiDAR data plot
 plt.ioff()

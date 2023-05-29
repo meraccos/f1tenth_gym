@@ -5,10 +5,10 @@ maps = list(range(1, 450))
 
 env = create_env(maps=maps, seed=5)
 
-model = "/Users/meraj/workspace/f1tenth_gym/work/models/new_reward_50k"
-model = PPO.load(path=model)
+model_path = "/Users/meraj/workspace/f1tenth_gym/work/models/new_reward_50k"
+model = PPO.load(path=model_path)
 
-obs = env.reset()
+obs, _ = env.reset()
 done = False
 
 while not done:

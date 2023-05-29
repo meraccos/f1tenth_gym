@@ -8,6 +8,7 @@ monitor.csv
 *.npz
 myenv/*
 activate/*
+experiment
 
 build/
 gym/f110_gym.egg-info

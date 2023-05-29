@@ -11,7 +11,7 @@ DTYPE = np.float32
 
 
 class LidarRandomizer(gym.ObservationWrapper):
-    def __init__(self, env, epsilon=0.05, zone_p=0.1, extreme_p=0.05):
+    def __init__(self, env, epsilon=0.02, zone_p=0.01, extreme_p=0.005):
         super().__init__(env)
         self.epsilon = epsilon
         self.zone_p = zone_p
@@ -37,7 +37,7 @@ class LidarRandomizer(gym.ObservationWrapper):
         # Randomly set some readings to very high or very low.
         if np.random.random() < self.extreme_p:
             index = np.random.randint(len(lidar_data))
-            lidar_data[index] = np.random.choice([0, 1])
+            lidar_data[index] = np.random.choice([0.1, 0.9])
 
         # Make sure the output is still between 0 and 1.
         lidar_data = np.clip(lidar_data, 0, 1)
@@ -49,7 +49,7 @@ class LidarRandomizer(gym.ObservationWrapper):
     
 
 class ActionRandomizer(gym.ActionWrapper):
-    def __init__(self, env, epsilon=0.01):
+    def __init__(self, env, epsilon=0.05):
         super().__init__(env)
         self.epsilon = epsilon
     def action(self, action):
@@ -65,40 +65,28 @@ class RewardWrapper(gym.Wrapper):
     def reward(self, obs):
         vs = obs["linear_vels_s"][self.ego_idx]
         vd = obs["linear_vels_d"][self.ego_idx]
-        w = obs["ang_vels_z"]
         d = obs["poses_d"]
 
         reward = 0.01
 
-        if abs(obs["linear_vels_x"]) <= 0.25:
-            reward -= 2.0
+        if abs(obs["linear_vels_x"]) <= 0.2:
+            reward -= 5.0
 
         # Encourage the agent to move in the vs direction
-        reward += 1.0 * vs
+        reward += 2.0 * vs
         reward -= 0.01 * abs(vd)
         
-        reward -= 0.1 * abs(d)
-        # reward -= 0.1 * abs(w)
+        reward -= 0.02 * abs(d)
+        reward -= 0.1 * abs(self.action[0])
 
         # Penalize the agent for collisions
         if self.env.collisions[0]:
             reward -= 1000.0
 
-        # Minimize d (encourage the agent to stay near the center of the track)
-        reward -= 0.05 * abs(d)
-
-        # Angular velocity penalty (discourage sharp turns)
-        reward -= 0.05 * abs(w)
-
-        # Penalize the agent for getting too close to walls or obstacles
-        min_distance = abs(np.min(obs["scans"]))
-        distance_threshold = 0.5
-        if min_distance < distance_threshold:
-            reward -= 0.01 * (distance_threshold - min_distance)
-
         return reward
 
     def step(self, action):
+        self.action = action
         obs, _, terminated, truncated, info = self.env.step(action)
         return obs, self.reward(obs).item(), terminated, truncated, info
 
