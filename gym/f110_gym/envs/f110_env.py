@@ -107,11 +107,12 @@ class F110Env(gym.Env):
         self.integrator = kwargs.get('integrator', Integrator.RK4)
            
         # number of lidar beams
-        self.num_beams = kwargs.get('num_beams', 600)
+        self.num_beams = kwargs.get('num_beams', 2155)
 
         # env states
         self.poses = np.zeros((self.num_agents, 3))
         self.collisions = np.zeros(self.num_agents)
+        self.prev_action = np.array([0.0,0.01])
 
         # race info
         self.lap_times = np.zeros(self.num_agents)
@@ -132,11 +133,10 @@ class F110Env(gym.Env):
         self.action_space = spaces.Box(np.array([self.params['s_min'], 
                                                  0.01]), 
                                        np.array([self.params['s_max'],
-                                                 1.0 ]), 
+                                                 3.2 ]), 
                                        dtype=np.float64)
         
         self.observation_space = spaces.Dict({
-            # 'ego_idx': spaces.Box(0, self.num_agents, (), np.int32),
             'scans': spaces.Box(0, 100, (self.num_beams, ), DTYPE),
             'poses_x': spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
             'poses_y': spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
@@ -146,7 +146,7 @@ class F110Env(gym.Env):
             'ang_vels_z': spaces.Box(-10, 10, (self.num_agents,), DTYPE),
             'collisions': spaces.Box(0, 1, (self.num_agents,), DTYPE),
             'lap_times': spaces.Box(0, 1e6, (self.num_agents,), DTYPE),
-            'lap_counts': spaces.Box(0, 9999, (self.num_agents,), np.int32)
+            'lap_counts': spaces.Box(0, 9, (self.num_agents,), np.int32)
         })
 
     def find_closest_index(self, sorted_list, target):
@@ -370,9 +370,6 @@ class F110Env(gym.Env):
         for key in ['poses_x', 'poses_y', 'poses_theta', 'collisions']:
             setattr(self, key, obs_dict[key])
 
-    def get_obs(self):
-        return self.curr_obs
-
     def _format_obs(self, obs):
         formatted_obs = {
             key: np.array(value, dtype=DTYPE)
@@ -391,6 +388,7 @@ class F110Env(gym.Env):
 
     def step(self, action):
         # call simulation step
+        self.prev_action = action
         obs = self.sim.step(action)
         obs['lap_times'] = self.lap_times
         obs['lap_counts'] = self.lap_counts
@@ -413,7 +411,6 @@ class F110Env(gym.Env):
         obs['scans'] = obs['scans'][0][::-1]
         obs = self._format_obs(obs)
 
-        self.curr_obs = obs
         return obs, 0, done, False, info
 
     def reset(self, poses=None, seed=None, options=None):
