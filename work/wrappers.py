@@ -1,14 +1,8 @@
 import gymnasium as gym
 from gymnasium import spaces
-
-from copy import copy
 import numpy as np
 
 from sklearn.neighbors import KDTree
-
-NUM_BEAMS = 2055
-DTYPE = np.float32
-
 
 class LidarRandomizer(gym.ObservationWrapper):
     def __init__(self, env, epsilon=0.02, zone_p=0.01, extreme_p=0.005):
@@ -67,22 +61,22 @@ class RewardWrapper(gym.Wrapper):
         vd = obs["linear_vels_d"][self.ego_idx]
         d = obs["poses_d"]
 
-        reward = 0.01
-
+        reward = 0.0
+        
         if abs(obs["linear_vels_x"]) <= 0.2:
             reward -= 5.0
-
-        # Encourage the agent to move in the vs direction
-        reward += 2.0 * vs
-        reward -= 0.01 * abs(vd)
         
+        # Encourage the agent to move in the vs direction
+        reward += 1.0 * vs
+        reward -= 0.01 * abs(vd)
+                
         reward -= 0.02 * abs(d)
-        reward -= 0.1 * abs(self.action[0])
+        reward -= 0.1 * abs(self.action[0])        
 
         # Penalize the agent for collisions
         if self.env.collisions[0]:
             reward -= 1000.0
-
+            
         return reward
 
     def step(self, action):
@@ -97,64 +91,60 @@ class FrenetObsWrapper(gym.ObservationWrapper):
 
         self.map_data = env.map_data.to_numpy()
         self.kdtree = KDTree(self.map_data[:, 1:3])
-
-        self.observation_space = spaces.Dict(
-            {
-                "scans": spaces.Box(0, 1, (NUM_BEAMS,), DTYPE),
-                "poses_x": spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
-                "poses_y": spaces.Box(-1000, 1000, (self.num_agents,), DTYPE),
-                "poses_theta": spaces.Box(
-                    -2 * np.pi, 2 * np.pi, (self.num_agents,), DTYPE
-                ),
-                "linear_vels_x": spaces.Box(-10, 10, (self.num_agents,), DTYPE),
-                "linear_vels_y": spaces.Box(-10, 10, (self.num_agents,), DTYPE),
-                "ang_vels_z": spaces.Box(-10, 10, (self.num_agents,), DTYPE),
-                "collisions": spaces.Box(0, 1, (self.num_agents,), DTYPE),
-                "lap_times": spaces.Box(0, 1e6, (self.num_agents,), DTYPE),
-                "lap_counts": spaces.Box(0, 999, (self.num_agents,), np.int32),
-                "poses_s": spaces.Box(-1000, 1000, (1,), DTYPE),
-                "poses_d": spaces.Box(-1000, 1000, (1,), DTYPE),
-                "linear_vels_s": spaces.Box(-10, 10, (1,), DTYPE),
-                "linear_vels_d": spaces.Box(-10, 10, (1,), DTYPE),
-                "linear_vel": spaces.Box(0, 1, (self.num_agents,), DTYPE),
-            }
-        )
+        
+        na = self.num_agents
+        self.observation_space = spaces.Dict({
+            "scans": spaces.Box(0, 1, (env.num_beams,), np.float32),
+            "poses_s":       spaces.Box(-100, 100, (1,), np.float32),
+            "poses_d":       spaces.Box(-100, 100, (1,), np.float32),
+            "linear_vels_s": spaces.Box(-10, 10, (1,), np.float32),
+            "linear_vels_d": spaces.Box(-10, 10, (1,), np.float32),
+            "linear_vel":    spaces.Box(0, 1, (na,), np.float32),
+            "prev_action":   spaces.Box(np.array([-0.4189, 0.01]), 
+                                        np.array([0.4189, 3.2 ]), dtype=np.float64), 
+            })
 
     def observation(self, obs):
-        new_obs = copy(obs)
-
-        frenet_coords = convert_to_frenet(new_obs["poses_x"][0],
-                                          new_obs["poses_y"][0],
-                                          new_obs["linear_vels_x"], 
-                                          new_obs["poses_theta"][0], 
-                                          self.map_data, 
-                                          self.kdtree
-        )
+        new_obs = obs.copy()
+        # print(self.env.prev_action)
         
-        new_obs["poses_s"] = np.array(frenet_coords[0]).reshape((1, -1))
-        new_obs["poses_d"] = np.array(frenet_coords[1])
-        new_obs["linear_vels_s"] = np.array(frenet_coords[2]).reshape((1, -1))
-        new_obs["linear_vels_d"] = np.array(frenet_coords[3])
-        
-        # Scale the scans and add linear_vel
-        clipped_indices = np.where(new_obs["scans"] >= 10)
-        noise = np.random.uniform(-0.5, 0, clipped_indices[0].shape)
-        
-        new_obs["scans"] = np.clip(new_obs["scans"], None, 10)
-        new_obs["scans"][clipped_indices] += noise
-        new_obs["scans"] /= 10.0
+        theta = new_obs["poses_theta"]
+        scans = new_obs["scans"]
+        px = new_obs["poses_x"]
+        py = new_obs["poses_y"]
+        vx = new_obs["linear_vels_x"]
+        vy = new_obs["linear_vels_y"]
+        v = (vx**2 + vy**2)**0.5
 
-        new_obs["linear_vel"] = new_obs["linear_vels_x"] / 3.2
-
+        frenet_coords = to_frenet(px[0], py[0], v, theta[0], self.map_data, self.kdtree)
+        
+        new_obs["poses_s"] = frenet_coords[0]
+        new_obs["poses_d"] = frenet_coords[1]
+        new_obs["linear_vels_s"] = frenet_coords[2]
+        new_obs["linear_vels_d"] = frenet_coords[3]
+        
+        # Save the first lidar data
+        # np.save('lidar_data_sim', np.array(new_obs["scans"]))
+        
+        # Preprocess the scans and add linear_vel
+        mask = scans >= 10
+        noise = np.random.uniform(-0.5, 0, mask.sum())
+        scans = np.clip(scans, None, 10)
+        scans[mask] += noise
+        scans /= 10.0
+        
+        new_obs["scans"] = scans
+        new_obs["linear_vel"] = v / 3.2
+        new_obs["prev_action"] = self.env.prev_action
+        
         return new_obs
-    
-    
+
 def get_closest_point_index(x, y, kdtree):
     _, indices = kdtree.query(np.array([[x, y]]), k=1)
     closest_point_index = indices[0, 0]
     return closest_point_index
 
-def convert_to_frenet(x, y, vel_magnitude, pose_theta, map_data, kdtree):
+def to_frenet(x, y, vel_magnitude, pose_theta, map_data, kdtree):
     closest_point_index = get_closest_point_index(x, y, kdtree)
     closest_point = map_data[closest_point_index]
     s_m, x_m, y_m, psi_rad = closest_point[0:4]
