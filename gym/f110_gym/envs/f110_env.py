@@ -306,7 +306,7 @@ class F110Env(gym.Env):
         self.map_resolution = yaml_data['resolution']
         self.map_max_s = self.map_data["s_m"].iloc[-1]
 
-        self.add_obstacles()
+        # self.add_obstacles()
         
         self.update_map(self.map_yaml)
 
@@ -343,14 +343,16 @@ class F110Env(gym.Env):
         # TODO: switch to maybe s-based
         left_t, right_t = 2, 2
 
-        poses_x = self.poses_x-self.start_xs
-        poses_y = self.poses_y-self.start_ys
-        delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y)))
+        poses_x = np.array(self.poses_x)-self.start_xs
+        poses_y = np.array(self.poses_y)-self.start_ys
+        # delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y)))
+        delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y), axis=0))
         temp_y = delta_pt[1, :]
         temp_y = np.where(temp_y > left_t, temp_y - left_t,
                           np.where(temp_y < -right_t, -right_t - temp_y, 0))
 
-        dist2 = delta_pt[0]**2 + temp_y**2
+        # dist2 = delta_pt[0, :]**2 + temp_y**2
+        dist2 = delta_pt[0, :]**2 + temp_y**2
         closes = dist2 <= 0.1
 
         self.toggle_list = np.where(np.logical_xor(closes, self.near_starts),
@@ -364,6 +366,48 @@ class F110Env(gym.Env):
         done = (self.collisions[self.ego_idx]) or np.all(self.toggle_list >= 2)        
             
         return bool(done)
+
+
+
+    # def _check_done(self):
+    #     """
+    #     Check if the current rollout is done
+
+    #     Args:
+    #         None
+
+    #     Returns:
+    #         done (bool): whether the rollout is done
+    #         toggle_list (list[int]): each agent's toggle list
+    #                     for crossing finish line
+    #     """
+
+    #     # this is assuming 2 agents
+    #     # TODO: switch to maybe s-based
+    #     left_t = 2
+    #     right_t = 2
+
+    #     poses_x = np.array(self.poses_x)-self.start_xs
+    #     poses_y = np.array(self.poses_y)-self.start_ys
+    #     delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y), axis=0))
+    #     temp_y = delta_pt[1, :]
+    #     temp_y = np.where(temp_y > left_t, temp_y - left_t,
+    #                       np.where(temp_y < -right_t, -right_t - temp_y, 0))
+
+    #     dist2 = delta_pt[0, :]**2 + temp_y**2
+    #     closes = dist2 <= 0.1
+
+    #     self.toggle_list = np.where(np.logical_xor(closes, self.near_starts),
+    #                                 self.toggle_list + 1, self.toggle_list)
+    #     self.near_starts = closes.copy()
+    #     self.lap_counts = self.toggle_list // 2
+    #     self.lap_times = np.where(self.toggle_list < 4,
+    #                               self.current_time,
+    #                               self.lap_times)
+
+    #     done = (self.collisions[self.ego_idx]) or np.all(self.toggle_list >= 4)        
+            
+    #     return bool(done), self.toggle_list >= 4
 
 
     def _update_state(self, obs_dict):
@@ -383,6 +427,9 @@ class F110Env(gym.Env):
                                       'lap_times', 'lap_counts']
         }
 
+    # def _convert_obs_to_arrays(self, obs):
+    #      return {key: np.array(value) for key, value in obs.items()}
+     
     def step(self, action):
         # call simulation step
         self.prev_action = action
@@ -392,16 +439,17 @@ class F110Env(gym.Env):
         self._update_render_obs(obs)
         self._update_state(obs)
         self.current_time += self.timestep
-
+        
         # check done
         done = self._check_done()
+        self.is_success = self.lap_counts[0] >= 1
         
-        info = {'lap_count': self.lap_counts,
-                'collision': self.collisions[0],
-                'is_success': obs['lap_counts'][0] >=1}
+        info = {'collision': self.collisions[0],
+                'is_success': self.is_success}
 
         # Reverse the lidar data
         obs['scans'] = obs['scans'][0][::-1]
+        # obs = self._convert_obs_to_arrays(obs)
         obs = self._format_obs(obs)
 
         return obs, 0, done, False, info

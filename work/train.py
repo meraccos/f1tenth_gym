@@ -12,7 +12,7 @@ if __name__ == "__main__":
     n_eval_episodes = 25
     learn_steps = 1e7
     # log_name = "act_obs_4stack_hm_train_hm_eval"
-    log_name = "yaml_fix_more_maps"
+    log_name = "cleanup"
 
     print(f"{log_name=}")
 

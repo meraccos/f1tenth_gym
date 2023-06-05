@@ -76,11 +76,15 @@ class RewardWrapper(gym.Wrapper):
         
         # Centerize the vehicle
         reward += 15 * min_d / self.env.map_width
-
-        # Penalize the agent for collisions
-        if self.env.collisions[0]:
-            reward -= 1000.0
-            
+        
+        # use the env. variable is_success for checking
+                
+        reward += (self.is_success) * 1000.0
+        reward -= (self.collisions[0] == 1) * 1000.0
+        
+        # # Penalize the agent for collisions
+        # if self.env.collisions[0]:
+        #     reward -= 1000.0
         return reward
 
     def step(self, action):
@@ -110,7 +114,6 @@ class FrenetObsWrapper(gym.ObservationWrapper):
 
     def observation(self, obs):
         new_obs = obs.copy()
-        # print(self.env.prev_action)
         
         theta = new_obs["poses_theta"]
         scans = new_obs["scans"]
@@ -126,10 +129,7 @@ class FrenetObsWrapper(gym.ObservationWrapper):
         new_obs["poses_d"] = frenet_coords[1]
         new_obs["linear_vels_s"] = frenet_coords[2]
         new_obs["linear_vels_d"] = frenet_coords[3]
-        
-        # Save the first lidar data
-        # np.save('lidar_data_sim', np.array(new_obs["scans"]))
-        
+
         # Preprocess the scans and add linear_vel
         mask = scans >= 10
         noise = np.random.uniform(-0.5, 0, mask.sum())

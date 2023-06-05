@@ -5,7 +5,6 @@ from stable_baselines3.common.vec_env import DummyVecEnv
 from stable_baselines3.common.vec_env import VecEnv
 from stable_baselines3.common.vec_env import sync_envs_normalization
 from typing import Any, Dict, Optional, Union
-from copy import copy
 
 import os
 import warnings
@@ -22,7 +21,7 @@ class TensorboardCallback(BaseCallback):
         
         self.log_width = 40
 
-        self.lap_count_log = np.zeros(self.log_width, int)
+        self.success_log = np.zeros(self.log_width, int)
         self.collision_log = np.ones(self.log_width, int)
 
         self.episode_index = 0
@@ -31,24 +30,23 @@ class TensorboardCallback(BaseCallback):
         self.collision_rate = 1.0
 
     def _on_step(self) -> bool:
-        # super()._on_step()
-        infos = copy(self.locals.get("infos", [{}])[0])
+        infos = self.locals.get("infos", [{}])[0]
 
         if 'episode' in infos:
-            self.lap_count_log[self.episode_index] = infos["lap_count"]
+            self.success_log[self.episode_index] = infos["is_success"]
             self.collision_log[self.episode_index] = infos['collision']
 
             self.episode_index = (self.episode_index + 1) % self.log_width
 
-            self.success_rate = np.mean(self.lap_count_log >= 1)
-            self.collision_rate = np.mean(self.collision_log)
+            self.success_rate = np.mean(self.success_log).item()
+            self.collision_rate = np.mean(self.collision_log).item()
 
         # Save the model
         if self.num_timesteps % self.save_interval == 0:
             self.model.save(f"{self.save_path}_{int(self.num_timesteps / 1000)}k")
 
-        self.logger.record("rollout/success_rate", float(self.success_rate))
-        self.logger.record("rollout/collision_rate", float(self.collision_rate))
+        self.logger.record("rollout/success_rate", self.success_rate)
+        self.logger.record("rollout/collision_rate", self.collision_rate)
 
         return True
 

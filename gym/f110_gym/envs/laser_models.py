@@ -131,7 +131,14 @@ def trace_ray(x, y, theta_index, sines, cosines, eps, orig_x, orig_y, orig_c, or
     # ray tracing iterations
     while dist_to_nearest > eps and total_dist <= max_range:
         # move in the direction of the ray by dist_to_nearest
-        x += dist_to_nearest * c
+        # print(x, dist_to_nearest, c)
+        # print(type(x), type(dist_to_nearest), c, '\n')
+        # try:
+        x = x + dist_to_nearest * c
+        # except NotImplementedError():
+        #     print(dist_to_nearest, c)
+        #     print(type(x), type(dist_to_nearest), c, '\n')
+        
         y += dist_to_nearest * s
 
         # update dist_to_nearest for current point on ray
