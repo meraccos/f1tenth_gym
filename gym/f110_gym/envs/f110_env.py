@@ -341,17 +341,16 @@ class F110Env(gym.Env):
 
         # this is assuming 2 agents
         # TODO: switch to maybe s-based
-        left_t = 2
-        right_t = 2
+        left_t, right_t = 2, 2
 
-        poses_x = np.array(self.poses_x)-self.start_xs
-        poses_y = np.array(self.poses_y)-self.start_ys
-        delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y), axis=0))
+        poses_x = self.poses_x-self.start_xs
+        poses_y = self.poses_y-self.start_ys
+        delta_pt = np.dot(self.start_rot, np.stack((poses_x, poses_y)))
         temp_y = delta_pt[1, :]
         temp_y = np.where(temp_y > left_t, temp_y - left_t,
                           np.where(temp_y < -right_t, -right_t - temp_y, 0))
 
-        dist2 = delta_pt[0, :]**2 + temp_y**2
+        dist2 = delta_pt[0]**2 + temp_y**2
         closes = dist2 <= 0.1
 
         self.toggle_list = np.where(np.logical_xor(closes, self.near_starts),
@@ -362,9 +361,10 @@ class F110Env(gym.Env):
                                   self.current_time,
                                   self.lap_times)
 
-        done = (self.collisions[self.ego_idx]) or np.all(self.toggle_list >= 4)        
+        done = (self.collisions[self.ego_idx]) or np.all(self.toggle_list >= 2)        
             
-        return bool(done), self.toggle_list >= 4
+        return bool(done)
+
 
     def _update_state(self, obs_dict):
         for key in ['poses_x', 'poses_y', 'poses_theta', 'collisions']:
@@ -394,11 +394,9 @@ class F110Env(gym.Env):
         self.current_time += self.timestep
 
         # check done
-        done, toggle_list = self._check_done()
+        done = self._check_done()
         
-        info = {'checkpoint_done': done,
-                'max_s': self.map_max_s,
-                'lap_count': obs['lap_counts'],
+        info = {'lap_count': self.lap_counts,
                 'collision': self.collisions[0],
                 'is_success': obs['lap_counts'][0] >=1}
 
