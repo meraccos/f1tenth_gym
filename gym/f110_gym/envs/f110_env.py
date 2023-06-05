@@ -383,9 +383,6 @@ class F110Env(gym.Env):
                                       'lap_times', 'lap_counts']
         }
 
-    def _convert_obs_to_arrays(self, obs):
-        return {key: np.array(value) for key, value in obs.items()}
-
     def step(self, action):
         # call simulation step
         self.prev_action = action
@@ -393,10 +390,8 @@ class F110Env(gym.Env):
         obs['lap_times'] = self.lap_times
         obs['lap_counts'] = self.lap_counts
         self._update_render_obs(obs)
-
-        self.current_time += self.timestep
-
         self._update_state(obs)
+        self.current_time += self.timestep
 
         # check done
         done, toggle_list = self._check_done()
@@ -463,7 +458,6 @@ class F110Env(gym.Env):
         obs, reward, terminated, truncated, info = self.step(action)
 
         self._update_render_obs(obs)
-        obs = self._convert_obs_to_arrays(obs)
         obs = self._format_obs(obs)
         
         return obs, info
