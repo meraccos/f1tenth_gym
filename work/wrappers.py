@@ -60,6 +60,7 @@ class RewardWrapper(gym.Wrapper):
         vs = obs["linear_vels_s"][self.ego_idx]
         vd = obs["linear_vels_d"][self.ego_idx]
         d = obs["poses_d"]
+        min_d = min(obs["scans"])
 
         reward = 0.0
         
@@ -71,7 +72,10 @@ class RewardWrapper(gym.Wrapper):
         reward -= 0.01 * abs(vd)
                 
         reward -= 0.02 * abs(d)
-        reward -= 0.1 * abs(self.action[0])        
+        reward -= 0.01 * abs(self.action[0])
+        
+        # Centerize the vehicle
+        reward += 15 * min_d / self.env.map_width
 
         # Penalize the agent for collisions
         if self.env.collisions[0]:
